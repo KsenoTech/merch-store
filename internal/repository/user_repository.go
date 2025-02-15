@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"database/sql"
+
 	"gorm.io/gorm"
 
 	"github.com/KsenoTech/merch-store/internal/models"
@@ -28,4 +30,23 @@ func (r *UserRepository) GetUserByEmail(email string) (*models.User, error) {
 
 func (r *UserRepository) UpdateUser(user *models.User) error {
 	return r.db.Save(user).Error
+}
+
+func (r *UserRepository) GetUserBalance(tx *sql.Tx, userID int) (int, error) {
+	var balance int
+	err := tx.QueryRow("SELECT coins FROM users WHERE id = $1", userID).Scan(&balance)
+	if err != nil {
+		return 0, err
+	}
+	return balance, nil
+}
+
+func (r *UserRepository) DeductCoins(tx *sql.Tx, userID, amount int) error {
+	_, err := tx.Exec("UPDATE users SET coins = coins - $1 WHERE id = $2", amount, userID)
+	return err
+}
+
+func (r *UserRepository) AddCoins(tx *sql.Tx, userID, amount int) error {
+	_, err := tx.Exec("UPDATE users SET coins = coins + $1 WHERE id = $2", amount, userID)
+	return err
 }

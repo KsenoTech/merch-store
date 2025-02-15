@@ -26,20 +26,28 @@ func main() {
 		log.Fatalf("Could not connect to database: %v", err)
 	}
 
+	sqlDB, err := db.DB() // Получаем *sql.DB и проверяем ошибку
+	if err != nil {
+		log.Fatalf("Failed to get underlying SQL DB: %v", err)
+	}
+
 	// Создаем репозитории
 	userRepo := repository.NewUserRepository(db)
-	transactionRepo := repository.NewTransactionRepository(db)
+	transactionRepo := repository.NewTransactionRepository(sqlDB)
 
 	// Создаем сервисы
-	authService := service.NewAuthService("your_secret_key", userRepo)
+	authService := service.NewAuthService("mySuperSecretKey123!@#ABCdef456", userRepo)
 	transactionService := service.NewTransactionService(transactionRepo, userRepo)
 
 	// Создаем обработчики
 	authHandler := handlers.NewAuthHandler(authService)
 	transactionHandler := handlers.NewTransactionHandler(transactionService)
 
+	// Создаем middleware
+	jwtMiddleware := middleware.JWTMiddleware("mySuperSecretKey123!@#ABCdef456") // Вызываем JWTMiddleware с secretKey
+
 	// Настраиваем роуты
-	router := routes.SetupRoutes(authHandler, transactionHandler, middleware.JWTMiddleware)
+	router := routes.SetupRoutes(authHandler, transactionHandler, jwtMiddleware)
 
 	// Запускаем сервер
 	log.Println("Starting server on port 8080...")
