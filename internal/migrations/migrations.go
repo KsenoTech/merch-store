@@ -16,9 +16,8 @@ var migrations embed.FS
 
 // ApplyMigrations применяет SQL-миграции из файла up.sql
 func ApplyMigrations(db *gorm.DB) error {
-
-	// Проверяем существование таблиц
-	if tableExists(db, "users") && tableExists(db, "merch") && tableExists(db, "coin_transfers") && tableExists(db, "purchases") {
+	// Проверяем, существует ли таблица schema_migrations
+	if migrationTableExists(db) {
 		log.Println("Database is already migrated")
 		return nil
 	}
@@ -29,26 +28,71 @@ func ApplyMigrations(db *gorm.DB) error {
 		return fmt.Errorf("failed to read migration file: %w", err)
 	}
 
-	// Разделяем миграции по точке с запятой (если есть несколько запросов)
-	statements := strings.Split(string(migrationContent), ";")
+	// Выполняем миграции
+	if err := executeMigrations(db, string(migrationContent)); err != nil {
+		return fmt.Errorf("failed to apply migrations: %w", err)
+	}
 
-	// Выполняем каждый запрос
-	for _, statement := range statements {
-		trimmedStatement := strings.TrimSpace(statement)
-		if trimmedStatement != "" {
-			if err := db.Exec(trimmedStatement).Error; err != nil {
-				return fmt.Errorf("failed to execute migration: %w", err)
-			}
-		}
+	// Создаем таблицу schema_migrations после успешного выполнения миграций
+	if err := createMigrationTable(db); err != nil {
+		return fmt.Errorf("failed to create migration table: %w", err)
 	}
 
 	log.Println("Migrations applied successfully")
 	return nil
 }
 
-// Проверка существования таблицы
-func tableExists(db *gorm.DB, tableName string) bool {
-	var count int
-	db.Raw(`SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?`, tableName).Scan(&count)
+// Проверка существования таблицы schema_migrations
+func migrationTableExists(db *gorm.DB) bool {
+	var count int64
+	db.Model(&struct{}{}).Table("information_schema.tables").
+		Where("table_name = ?", "schema_migrations").Count(&count)
 	return count > 0
+}
+
+// Создание таблицы schema_migrations
+func createMigrationTable(db *gorm.DB) error {
+	return db.Exec(`
+        CREATE TABLE schema_migrations (
+            version TEXT PRIMARY KEY
+        );
+        INSERT INTO schema_migrations (version) VALUES ('v1');
+    `).Error
+}
+
+// Выполнение миграций
+func executeMigrations(db *gorm.DB, sql string) error {
+	// Разделяем SQL-запросы по точке с запятой
+	statements := splitSQL(sql)
+
+	// Выполняем каждый запрос
+	for _, statement := range statements {
+		if err := db.Exec(statement).Error; err != nil {
+			return fmt.Errorf("failed to execute migration statement: %w", err)
+		}
+	}
+	return nil
+}
+
+// Разделение SQL-запросов
+func splitSQL(sql string) []string {
+	var statements []string
+	var buffer strings.Builder
+	inString := false
+
+	for _, char := range sql {
+		if char == '\'' || char == '"' {
+			inString = !inString
+		}
+		if char == ';' && !inString {
+			statements = append(statements, buffer.String())
+			buffer.Reset()
+		} else {
+			buffer.WriteRune(char)
+		}
+	}
+	if buffer.Len() > 0 {
+		statements = append(statements, buffer.String())
+	}
+	return statements
 }
