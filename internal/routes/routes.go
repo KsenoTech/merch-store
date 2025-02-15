@@ -7,7 +7,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func SetupRoutes(authHandler *handlers.AuthHandler, transactionHandler *handlers.TransactionHandler, jwtMiddleware func(http.Handler) http.Handler) *mux.Router {
+func SetupRoutes(authHandler *handlers.AuthHandler, transactionHandler *handlers.TransactionHandler, jwtMiddleware func(http.Handler) http.Handler) http.Handler {
 	router := mux.NewRouter()
 
 	// Роуты для аутентификации
@@ -21,14 +21,8 @@ func SetupRoutes(authHandler *handlers.AuthHandler, transactionHandler *handlers
 	protected.HandleFunc("/transfer", transactionHandler.TransferCoins).Methods("POST")
 	protected.HandleFunc("/buy", transactionHandler.BuyMerch).Methods("POST")
 
-	// Оборачиваем GetPurchasedItems и GetTransactionHistory с помощью jwtMiddleware
-	router.HandleFunc("/get-purchased-items", func(w http.ResponseWriter, r *http.Request) {
-		jwtMiddleware(http.HandlerFunc(transactionHandler.GetPurchasedItems)).ServeHTTP(w, r)
-	}).Methods("GET")
-
-	router.HandleFunc("/get-transaction-history", func(w http.ResponseWriter, r *http.Request) {
-		jwtMiddleware(http.HandlerFunc(transactionHandler.GetTransactionHistory)).ServeHTTP(w, r)
-	}).Methods("GET")
+	protected.HandleFunc("/get-purchased-items", transactionHandler.GetPurchasedItems).Methods("GET")
+	protected.HandleFunc("/get-transaction-history", transactionHandler.GetTransactionHistory).Methods("GET")
 
 	return router
 }
