@@ -39,7 +39,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	user := models.User{
 		Email:    req.Email,
 		Password: hashedPassword,
-		Balance:  1000, // Начальный баланс 1000 монет
+		Coins:    1000, // Начальный баланс 1000 монет
 	}
 
 	if err := h.authService.UserRepo.CreateUser(&user); err != nil {

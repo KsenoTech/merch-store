@@ -2,6 +2,8 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
+	"log"
 )
 
 type TransactionRepository struct {
@@ -22,17 +24,26 @@ func (r *TransactionRepository) LogTransfer(tx *sql.Tx, fromUserID, toUserID, am
 }
 
 func (r *TransactionRepository) GetItemPrice(tx *sql.Tx, itemName string) (int, error) {
+	log.Printf("Getting item price for itemName: %s", itemName)
+
 	var price int
 	err := tx.QueryRow("SELECT price FROM merch WHERE name = $1", itemName).Scan(&price)
 	if err != nil {
-		return 0, err
+		log.Printf("Error getting item price for itemName: %s. Error: %v", itemName, err)
+		return 0, errors.New("item not found")
 	}
+	log.Printf("Item price for %s is %d coins", itemName, price)
+
 	return price, nil
 }
 
+// Логирование покупки
 func (r *TransactionRepository) LogPurchase(tx *sql.Tx, userID int, itemName string, price int) error {
 	_, err := tx.Exec("INSERT INTO purchases (user_id, item_name, price) VALUES ($1, $2, $3)", userID, itemName, price)
-	return err
+	if err != nil {
+		return errors.New("failed to log purchase")
+	}
+	return nil
 }
 
 // Получение истории покупок пользователя
@@ -61,6 +72,8 @@ func (r *TransactionRepository) GetPurchasedItems(tx *sql.Tx, userID int) ([]str
 
 // Получение истории транзакций пользователя
 func (r *TransactionRepository) GetTransactionHistory(tx *sql.Tx, userID int) ([]string, error) {
+	log.Printf("Fetching transaction history for userID: %d", userID)
+
 	rows, err := tx.Query(`
         SELECT 
             CASE 
@@ -71,6 +84,7 @@ func (r *TransactionRepository) GetTransactionHistory(tx *sql.Tx, userID int) ([
         WHERE from_user_id = $1 OR to_user_id = $1
     `, userID)
 	if err != nil {
+		log.Printf("Error fetching transaction history for userID: %d. Error: %v", userID, err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -79,14 +93,17 @@ func (r *TransactionRepository) GetTransactionHistory(tx *sql.Tx, userID int) ([
 	for rows.Next() {
 		var description string
 		if err := rows.Scan(&description); err != nil {
+			log.Printf("Error scanning transaction history row for userID: %d. Error: %v", userID, err)
 			return nil, err
 		}
 		transactionHistory = append(transactionHistory, description)
 	}
 
 	if err := rows.Err(); err != nil {
+		log.Printf("Error iterating over transaction history rows for userID: %d. Error: %v", userID, err)
 		return nil, err
 	}
 
+	log.Printf("Error iterating over transaction history rows for userID: %d. Error: %v", userID, err)
 	return transactionHistory, nil
 }

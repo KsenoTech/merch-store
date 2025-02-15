@@ -2,6 +2,8 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
+	"log"
 
 	"gorm.io/gorm"
 
@@ -32,18 +34,31 @@ func (r *UserRepository) UpdateUser(user *models.User) error {
 	return r.db.Save(user).Error
 }
 
+// Получение баланса пользователя
 func (r *UserRepository) GetUserBalance(tx *sql.Tx, userID int) (int, error) {
-	var balance int
-	err := tx.QueryRow("SELECT coins FROM users WHERE id = $1", userID).Scan(&balance)
-	if err != nil {
-		return 0, err
+	log.Printf("Getting user balance for userID: %d", userID)
+
+	var coins int
+	err := tx.QueryRow("SELECT coins FROM users WHERE id = $1", userID).Scan(&coins)
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("Error UserRepository getting user balance for userID: %d. Error: %v", userID, err)
+		return 0, errors.New("failed to get user balance")
 	}
-	return balance, nil
+	if err == sql.ErrNoRows {
+		return 0, errors.New("user not found")
+	}
+
+	log.Printf("User balance for userID: %d is %d coins", userID, coins)
+	return coins, nil
 }
 
+// Списание монет
 func (r *UserRepository) DeductCoins(tx *sql.Tx, userID, amount int) error {
 	_, err := tx.Exec("UPDATE users SET coins = coins - $1 WHERE id = $2", amount, userID)
-	return err
+	if err != nil {
+		return errors.New("failed to deduct coins")
+	}
+	return nil
 }
 
 func (r *UserRepository) AddCoins(tx *sql.Tx, userID, amount int) error {

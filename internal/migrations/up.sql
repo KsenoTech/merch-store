@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,          -- Email пользователя
     password VARCHAR(255) NOT NULL,              -- Зашифрованный пароль
-    balance INTEGER NOT NULL DEFAULT 1000,       -- Баланс пользователя (coins)
+    coins INTEGER NOT NULL DEFAULT 1000,       -- Баланс пользователя (coins)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Время создания
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Время последнего обновления
 );

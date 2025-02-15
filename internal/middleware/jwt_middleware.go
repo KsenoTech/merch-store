@@ -45,11 +45,13 @@ func JWTMiddleware(secretKey string) func(http.Handler) http.Handler {
 				return
 			}
 
-			userID, ok := claims["user_id"].(float64)
+			userIDFloat, ok := claims["user_id"].(float64)
 			if !ok {
 				http.Error(w, "Invalid user ID in token", http.StatusUnauthorized)
 				return
 			}
+
+			userID := int(userIDFloat)
 
 			// Передаем userID в контекст запроса
 			ctx := context.WithValue(r.Context(), UserIDKey, int(userID))
