@@ -21,5 +21,14 @@ func SetupRoutes(authHandler *handlers.AuthHandler, transactionHandler *handlers
 	protected.HandleFunc("/transfer", transactionHandler.TransferCoins).Methods("POST")
 	protected.HandleFunc("/buy", transactionHandler.BuyMerch).Methods("POST")
 
+	// Оборачиваем GetPurchasedItems и GetTransactionHistory с помощью jwtMiddleware
+	router.HandleFunc("/get-purchased-items", func(w http.ResponseWriter, r *http.Request) {
+		jwtMiddleware(http.HandlerFunc(transactionHandler.GetPurchasedItems)).ServeHTTP(w, r)
+	}).Methods("GET")
+
+	router.HandleFunc("/get-transaction-history", func(w http.ResponseWriter, r *http.Request) {
+		jwtMiddleware(http.HandlerFunc(transactionHandler.GetTransactionHistory)).ServeHTTP(w, r)
+	}).Methods("GET")
+
 	return router
 }

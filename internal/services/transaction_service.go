@@ -1,10 +1,8 @@
 package service
 
 import (
-	"context"
 	"errors"
 
-	"github.com/KsenoTech/merch-store/internal/models"
 	"github.com/KsenoTech/merch-store/internal/repository"
 )
 
@@ -20,7 +18,7 @@ func NewTransactionService(transactionRepo *repository.TransactionRepository, us
 // Перевод монет между пользователями
 func (s *TransactionService) TransferCoins(fromUserID, toUserID, amount int) error {
 	// Начинаем транзакцию
-	tx, err := s.transactionRepo.Begin()
+	tx, err := s.transactionRepo.BeginTx()
 	if err != nil {
 		return errors.New("failed to start transaction")
 	}
@@ -62,20 +60,44 @@ func (s *TransactionService) TransferCoins(fromUserID, toUserID, amount int) err
 	return nil
 }
 
-// Получение списка купленных товаров
-func (s *TransactionService) GetPurchasedItems(ctx context.Context, userID int) ([]models.PurchasedItem, error) {
-	return s.transactionRepo.GetPurchasedItems(ctx, userID)
+// Получение истории покупок пользователя
+func (s *TransactionService) GetPurchasedItems(userID int) ([]string, error) {
+	tx, err := s.transactionRepo.BeginTx()
+	if err != nil {
+		return nil, errors.New("failed to start transaction")
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		} else {
+			_ = tx.Commit()
+		}
+	}()
+
+	return s.transactionRepo.GetPurchasedItems(tx, userID)
 }
 
-// Получение истории транзакций (отправленных и полученных монет)
-func (s *TransactionService) GetTransactionHistory(ctx context.Context, userID int) ([]models.Transaction, error) {
-	return s.transactionRepo.GetTransactionHistory(ctx, userID)
+// Получение истории транзакций пользователя
+func (s *TransactionService) GetTransactionHistory(userID int) ([]string, error) {
+	tx, err := s.transactionRepo.BeginTx()
+	if err != nil {
+		return nil, errors.New("failed to start transaction")
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		} else {
+			_ = tx.Commit()
+		}
+	}()
+
+	return s.transactionRepo.GetTransactionHistory(tx, userID)
 }
 
 // Покупка мерча
 func (s *TransactionService) BuyMerch(userID int, itemName string) error {
 	// Начинаем транзакцию
-	tx, err := s.transactionRepo.Begin()
+	tx, err := s.transactionRepo.BeginTx()
 	if err != nil {
 		return errors.New("failed to start transaction")
 	}
