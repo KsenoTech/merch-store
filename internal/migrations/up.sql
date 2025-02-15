@@ -1,23 +1,15 @@
-CREATE TABLE users (
+-- Создание таблицы users
+CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(255) UNIQUE NOT NULL,
     coins INTEGER NOT NULL DEFAULT 1000
 );
 
-CREATE TABLE transactions (
+-- Создание таблицы merch
+CREATE TABLE IF NOT EXISTS merch (
     id SERIAL PRIMARY KEY,
-    from_user_id INTEGER REFERENCES users(id),
-    to_user_id INTEGER REFERENCES users(id),
-    amount INTEGER NOT NULL CHECK (amount > 0),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE purchases (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id),
-    item_name VARCHAR(255) NOT NULL,
-    price INTEGER NOT NULL,
-    purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    name VARCHAR(255) UNIQUE NOT NULL,
+    price INTEGER NOT NULL
 );
 
 -- Заполнение таблицы merch
@@ -31,4 +23,23 @@ INSERT INTO merch (name, price) VALUES
 ('umbrella', 200),
 ('socks', 10),
 ('wallet', 50),
-('pink-hoody', 500);
+('pink-hoody', 500)
+ON CONFLICT (name) DO NOTHING;
+
+-- Создание таблицы coin_transfers
+CREATE TABLE IF NOT EXISTS coin_transfers (
+    id SERIAL PRIMARY KEY,
+    from_user_id INTEGER NOT NULL,
+    to_user_id INTEGER NOT NULL,
+    amount INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Создание таблицы purchases
+CREATE TABLE IF NOT EXISTS purchases (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    item_name VARCHAR(255) NOT NULL,
+    price INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
