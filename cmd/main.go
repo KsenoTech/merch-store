@@ -10,6 +10,8 @@ import (
 	"github.com/KsenoTech/merch-store/internal/repository"
 	"github.com/KsenoTech/merch-store/internal/routes"
 	service "github.com/KsenoTech/merch-store/internal/services"
+
+	"github.com/KsenoTech/merch-store/internal/migrations"
 	"github.com/joho/godotenv"
 )
 
@@ -26,6 +28,12 @@ func main() {
 		log.Fatalf("Could not connect to database: %v", err)
 	}
 
+	// Применяем миграции
+	if err := migrations.ApplyMigrations(db); err != nil {
+		log.Fatalf("Failed to apply migrations: %v", err)
+	}
+	log.Println("Migrations applied or already up-to-date")
+
 	sqlDB, err := db.DB() // Получаем *sql.DB и проверяем ошибку
 	if err != nil {
 		log.Fatalf("Failed to get underlying SQL DB: %v", err)
@@ -36,7 +44,7 @@ func main() {
 	transactionRepo := repository.NewTransactionRepository(sqlDB)
 
 	// Создаем сервисы
-	authService := service.NewAuthService("mySuperSecretKey123!@#ABCdef456", userRepo)
+	authService := service.NewAuthService("SECRET_KEY", userRepo)
 	transactionService := service.NewTransactionService(transactionRepo, userRepo)
 
 	// Создаем обработчики
@@ -44,7 +52,7 @@ func main() {
 	transactionHandler := handlers.NewTransactionHandler(transactionService)
 
 	// Создаем middleware
-	jwtMiddleware := middleware.JWTMiddleware("mySuperSecretKey123!@#ABCdef456") // Вызываем JWTMiddleware с secretKey
+	jwtMiddleware := middleware.JWTMiddleware("SECRET_KEY") // Вызываем JWTMiddleware с secretKey
 
 	// Настраиваем роуты
 	router := routes.SetupRoutes(authHandler, transactionHandler, jwtMiddleware)
