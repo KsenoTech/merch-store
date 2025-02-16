@@ -1,22 +1,39 @@
-version: '3'
+version: '3.8'
+
 services:
   db:
-    image: postgres:17
+    image: postgres:15-alpine
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: merch_store
-    ports:
-      - "5432:5432"
-  
+      POSTGRES_USER: yourusername
+      POSTGRES_PASSWORD: yourpassword
+      POSTGRES_DB: yourdatabase
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: merch_store_app
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: yourusername
+      DB_PASSWORD: yourpassword
+      DB_NAME: yourdatabase
     ports:
       - "8080:8080"
     depends_on:
       - db
-    environment:
-      DB_HOST: db
-      DB_USER: admin
-      DB_PASS: password
-      DB_NAME: merch_store
+    env_file:
+      - .env
+    networks:
+      - app-network
+
+networks:
+  app-network:
+
+volumes:
+  postgres_data:
