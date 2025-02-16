@@ -69,7 +69,12 @@ func (s *AuthService) AuthenticateOrCreateUser(username, password string) (strin
 
 	// Проверяем, существует ли пользователь
 	user, err := s.UserRepo.GetUserByUsername(username)
+
 	if err != nil {
+		return "", errors.New("failed to fetch user")
+	}
+
+	if user == nil {
 		log.Printf("User %s not found, creating...", username)
 
 		// Хешируем пароль
@@ -84,6 +89,7 @@ func (s *AuthService) AuthenticateOrCreateUser(username, password string) (strin
 			Password: hashedPassword,
 			Coins:    1000, // Начальный баланс
 		}
+
 		if err := s.UserRepo.CreateUser(&newUser); err != nil {
 			return "", errors.New("failed to create user")
 		}

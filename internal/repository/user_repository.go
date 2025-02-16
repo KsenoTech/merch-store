@@ -32,9 +32,10 @@ func (r *UserRepository) CreateUser(user *models.User) error {
 func (r *UserRepository) GetUserByUsername(username string) (*models.User, error) {
 	log.Printf("Fetching user by username: %s", username)
 	var user models.User
-	err := r.db.Model(&models.User{}).Where("username = ?", username).First(&user).Error
+	err := r.db.Where("username = ?", username).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			log.Printf("User %s not found", username)
 			return nil, nil // Пользователь не найден
 		}
 		return nil, errors.New("failed to get user by username")
