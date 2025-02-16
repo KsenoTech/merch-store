@@ -2,8 +2,10 @@ package service
 
 import (
 	"errors"
+	"log"
 	"time"
 
+	"github.com/KsenoTech/merch-store/internal/models"
 	"github.com/KsenoTech/merch-store/internal/repository"
 	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/bcrypt"
@@ -26,8 +28,8 @@ func (s *AuthService) HashPassword(password string) (string, error) {
 	return string(hashedPassword), nil
 }
 
-func (s *AuthService) CheckPasswordHash(password, hash string) bool {
-	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
+func (s *AuthService) ComparePasswords(hashedPassword, password string) bool {
+	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)) == nil
 }
 
 type Claims struct {
@@ -62,15 +64,48 @@ func (s *AuthService) ParseToken(tokenString string) (*Claims, error) {
 	return claims, nil
 }
 
-func (s *AuthService) AuthenticateUser(email, password string) (string, error) {
-	user, err := s.UserRepo.GetUserByEmail(email)
+func (s *AuthService) AuthenticateOrCreateUser(username, password string) (string, error) {
+	log.Printf("Authenticating or creating user: %s", username)
+
+	// Проверяем, существует ли пользователь
+	user, err := s.UserRepo.GetUserByUsername(username)
 	if err != nil {
-		return "", errors.New("user not found")
+		log.Printf("User %s not found, creating...", username)
+
+		// Хешируем пароль
+		hashedPassword, err := s.HashPassword(password)
+		if err != nil {
+			return "", errors.New("failed to hash password")
+		}
+
+		// Создаем нового пользователя
+		newUser := models.User{
+			Username: username,
+			Password: hashedPassword,
+			Coins:    1000, // Начальный баланс
+		}
+		if err := s.UserRepo.CreateUser(&newUser); err != nil {
+			return "", errors.New("failed to create user")
+		}
+
+		// Генерируем токен для нового пользователя
+		token, err := s.GenerateToken(newUser.ID)
+		if err != nil {
+			return "", errors.New("failed to generate token")
+		}
+		log.Printf("User %s created successfully with ID: %d", username, newUser.ID)
+		return token, nil
 	}
 
-	if !s.CheckPasswordHash(password, user.Password) {
-		return "", errors.New("invalid credentials")
+	// Пользователь существует, проверяем пароль
+	if !s.ComparePasswords(user.Password, password) { // Используем результат ComparePasswords напрямую
+		return "", errors.New("invalid password")
 	}
 
-	return s.GenerateToken(user.ID)
+	// Генерируем токен для существующего пользователя
+	token, err := s.GenerateToken(user.ID)
+	if err != nil {
+		return "", errors.New("failed to generate token")
+	}
+	return token, nil
 }

@@ -19,13 +19,25 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 }
 
 func (r *UserRepository) CreateUser(user *models.User) error {
-	return r.db.Create(user).Error
+	log.Printf("Creating new user: %+v", user)
+	result := r.db.Create(user)
+	if result.Error != nil {
+		log.Printf("Error creating user: %v", result.Error)
+		return errors.New("failed to create user")
+	}
+	log.Printf("User created successfully: %+v", user)
+	return nil
 }
 
-func (r *UserRepository) GetUserByEmail(email string) (*models.User, error) {
+func (r *UserRepository) GetUserByUsername(username string) (*models.User, error) {
+	log.Printf("Fetching user by username: %s", username)
 	var user models.User
-	if err := r.db.Where("email = ?", email).First(&user).Error; err != nil {
-		return nil, err
+	err := r.db.Model(&models.User{}).Where("username = ?", username).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil // Пользователь не найден
+		}
+		return nil, errors.New("failed to get user by username")
 	}
 	return &user, nil
 }
@@ -38,18 +50,36 @@ func (r *UserRepository) UpdateUser(user *models.User) error {
 func (r *UserRepository) GetUserBalance(tx *sql.Tx, userID int) (int, error) {
 	log.Printf("Getting user balance for userID: %d", userID)
 
-	var coins int
-	err := tx.QueryRow("SELECT coins FROM users WHERE id = $1", userID).Scan(&coins)
-	if err != nil && err != sql.ErrNoRows {
-		log.Printf("Error UserRepository getting user balance for userID: %d. Error: %v", userID, err)
-		return 0, errors.New("failed to get user balance")
-	}
-	if err == sql.ErrNoRows {
-		return 0, errors.New("user not found")
+	var balance int
+	var query string
+
+	// Если транзакция не передана, используем основное соединение
+	if tx == nil {
+		// Получаем *sql.DB из GORM
+		sqlDB, err := r.db.DB()
+		if err != nil {
+			log.Printf("Error getting underlying SQL DB: %v", err)
+			return 0, errors.New("failed to get underlying SQL DB")
+		}
+
+		query = "SELECT coins FROM users WHERE id = $1"
+		err = sqlDB.QueryRow(query, userID).Scan(&balance)
+
+		if err != nil {
+			log.Printf("Error getting user balance for userID: %d. Error: %v", userID, err)
+			return 0, errors.New("failed to get user balance")
+		}
+	} else {
+		query = "SELECT coins FROM users WHERE id = $1"
+		err := tx.QueryRow(query, userID).Scan(&balance)
+		if err != nil {
+			log.Printf("Error getting user balance for userID: %d in transaction. Error: %v", userID, err)
+			return 0, errors.New("failed to get user balance")
+		}
 	}
 
-	log.Printf("User balance for userID: %d is %d coins", userID, coins)
-	return coins, nil
+	log.Printf("User balance for userID: %d is %d coins", userID, balance)
+	return balance, nil
 }
 
 // Списание монет

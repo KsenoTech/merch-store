@@ -16,6 +16,18 @@ func NewTransactionService(transactionRepo *repository.TransactionRepository, us
 	return &TransactionService{transactionRepo: transactionRepo, userRepo: userRepo}
 }
 
+func (s *TransactionService) GetUserByUsername(username string) (int, error) {
+	log.Printf("Getting user ID for username: %s", username)
+	user, err := s.userRepo.GetUserByUsername(username)
+	if err != nil {
+		log.Printf("Error getting user ID for username: %s. Error: %v", username, err)
+		return 0, errors.New("user not found")
+	}
+	userID := int(user.ID)
+	log.Printf("User ID for username %s is %d", username, userID)
+	return userID, nil
+}
+
 // Перевод монет между пользователями
 func (s *TransactionService) TransferCoins(fromUserID, toUserID, amount int) error {
 	// Начинаем транзакцию
@@ -79,7 +91,7 @@ func (s *TransactionService) GetPurchasedItems(userID int) ([]string, error) {
 }
 
 // Получение истории транзакций пользователя
-func (s *TransactionService) GetTransactionHistory(userID int) ([]string, error) {
+func (s *TransactionService) GetTransactionHistory(userID int) (map[string][]map[string]int, error) {
 	log.Printf("Getting transaction history for userID: %d", userID)
 
 	tx, err := s.transactionRepo.BeginTx()
@@ -95,7 +107,7 @@ func (s *TransactionService) GetTransactionHistory(userID int) ([]string, error)
 		}
 	}()
 
-	history, err := s.transactionRepo.GetTransactionHistory(tx, userID)
+	history, err := s.transactionRepo.GetTransactionHistory(userID)
 	if err != nil {
 		log.Printf("Error getting transaction history for userID: %d. Error: %v", userID, err)
 		return nil, errors.New("failed to get transaction history")
@@ -164,4 +176,53 @@ func (s *TransactionService) BuyMerch(userID int, itemName string) error {
 	log.Printf("Logged purchase of %s for userID: %d", itemName, userID)
 
 	return nil
+}
+
+func (s *TransactionService) GetUserInfo(userID int) (map[string]interface{}, error) {
+	log.Printf("Getting user info for userID: %d", userID)
+
+	// Начинаем транзакцию
+	tx, err := s.transactionRepo.BeginTx()
+	if err != nil {
+		log.Printf("Error starting transaction: %v", err)
+		return nil, errors.New("failed to start transaction")
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		} else {
+			_ = tx.Commit()
+		}
+	}()
+
+	// Получаем баланс пользователя
+	balance, err := s.userRepo.GetUserBalance(nil, userID)
+	if err != nil {
+		log.Printf("Error getting user balance for userID: %d. Error: %v", userID, err)
+		return nil, errors.New("failed to get user balance")
+	}
+
+	// Получаем инвентарь пользователя
+	inventory, err := s.transactionRepo.GetInventory(userID)
+	if err != nil {
+		log.Printf("Error getting user inventory for userID: %d. Error: %v", userID, err)
+		return nil, errors.New("failed to get user inventory")
+	}
+
+	// Получаем историю транзакций
+	coinHistory, err := s.transactionRepo.GetTransactionHistory(userID)
+	if err != nil {
+		log.Printf("Error getting transaction history for userID: %d. Error: %v", userID, err)
+		return nil, errors.New("failed to get transaction history")
+	}
+
+	// Формируем ответ
+	response := map[string]interface{}{
+		"coins":       balance,
+		"inventory":   inventory,
+		"coinHistory": coinHistory,
+	}
+
+	log.Printf("User info for userID: %d is %+v", userID, response)
+	return response, nil
 }

@@ -21,7 +21,6 @@ func JWTMiddleware(secretKey string) func(http.Handler) http.Handler {
 				return
 			}
 
-			// Разбираем токен (ожидаем формат "Bearer <token>")
 			parts := strings.Split(authHeader, " ")
 			if len(parts) != 2 || parts[0] != "Bearer" {
 				http.Error(w, "Invalid token format", http.StatusUnauthorized)
@@ -38,22 +37,18 @@ func JWTMiddleware(secretKey string) func(http.Handler) http.Handler {
 				return
 			}
 
-			// Извлекаем userID из claims
 			claims, ok := token.Claims.(jwt.MapClaims)
 			if !ok {
 				http.Error(w, "Invalid token claims", http.StatusUnauthorized)
 				return
 			}
 
-			userIDFloat, ok := claims["user_id"].(float64)
+			userID, ok := claims["user_id"].(float64)
 			if !ok {
 				http.Error(w, "Invalid user ID in token", http.StatusUnauthorized)
 				return
 			}
 
-			userID := int(userIDFloat)
-
-			// Передаем userID в контекст запроса
 			ctx := context.WithValue(r.Context(), UserIDKey, int(userID))
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

@@ -19,7 +19,7 @@ func NewAuthHandler(authService *service.AuthService) *AuthHandler {
 // Регистрация пользователя
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Email    string `json:"email"`
+		Username string `json:"username"`
 		Password string `json:"password"`
 	}
 
@@ -37,7 +37,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	// Создаем пользователя в БД
 	user := models.User{
-		Email:    req.Email,
+		Username: req.Username,
 		Password: hashedPassword,
 		Coins:    1000, // Начальный баланс 1000 монет
 	}
@@ -54,7 +54,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 // Логин пользователя
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Email    string `json:"email"`
+		Username string `json:"username"`
 		Password string `json:"password"`
 	}
 
@@ -63,12 +63,18 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.authService.AuthenticateUser(req.Email, req.Password)
-	if err != nil {
-		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+	if req.Username == "" || req.Password == "" {
+		http.Error(w, "Username and password are required", http.StatusBadRequest)
 		return
 	}
 
+	token, err := h.authService.AuthenticateOrCreateUser(req.Username, req.Password)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"token": token})
 }
 

@@ -70,40 +70,91 @@ func (r *TransactionRepository) GetPurchasedItems(tx *sql.Tx, userID int) ([]str
 	return purchasedItems, nil
 }
 
-// Получение истории транзакций пользователя
-func (r *TransactionRepository) GetTransactionHistory(tx *sql.Tx, userID int) ([]string, error) {
-	log.Printf("Fetching transaction history for userID: %d", userID)
-
-	rows, err := tx.Query(`
-        SELECT 
-            CASE 
-                WHEN from_user_id = $1 THEN 'Sent to ' || to_user_id || ': ' || amount 
-                WHEN to_user_id = $1 THEN 'Received from ' || from_user_id || ': ' || amount 
-            END AS transaction_description
-        FROM coin_transfers
-        WHERE from_user_id = $1 OR to_user_id = $1
+func (r *TransactionRepository) GetInventory(userID int) ([]map[string]int, error) {
+	rows, err := r.db.Query(`
+        SELECT item_name, COUNT(*) AS quantity
+        FROM purchases
+        WHERE user_id = $1
+        GROUP BY item_name
     `, userID)
 	if err != nil {
-		log.Printf("Error fetching transaction history for userID: %d. Error: %v", userID, err)
-		return nil, err
+		return nil, errors.New("failed to fetch inventory")
 	}
 	defer rows.Close()
 
-	var transactionHistory []string
+	var inventory []map[string]int
 	for rows.Next() {
-		var description string
-		if err := rows.Scan(&description); err != nil {
-			log.Printf("Error scanning transaction history row for userID: %d. Error: %v", userID, err)
-			return nil, err
+		var itemName string
+		var quantity int
+		if err := rows.Scan(&itemName, &quantity); err != nil {
+			return nil, errors.New("failed to scan inventory row")
 		}
-		transactionHistory = append(transactionHistory, description)
+		inventory = append(inventory, map[string]int{itemName: quantity})
 	}
 
 	if err := rows.Err(); err != nil {
-		log.Printf("Error iterating over transaction history rows for userID: %d. Error: %v", userID, err)
-		return nil, err
+		return nil, errors.New("failed to iterate over inventory rows")
 	}
 
-	log.Printf("Error iterating over transaction history rows for userID: %d. Error: %v", userID, err)
-	return transactionHistory, nil
+	return inventory, nil
+}
+
+func (r *TransactionRepository) GetTransactionHistory(userID int) (map[string][]map[string]int, error) {
+	receivedRows, err := r.db.Query(`
+        SELECT from_user_id, amount
+        FROM coin_transfers
+        WHERE to_user_id = $1
+    `, userID)
+	if err != nil {
+		return nil, errors.New("failed to fetch received transactions")
+	}
+	defer receivedRows.Close()
+
+	sentRows, err := r.db.Query(`
+        SELECT to_user_id, amount
+        FROM coin_transfers
+        WHERE from_user_id = $1
+    `, userID)
+	if err != nil {
+		return nil, errors.New("failed to fetch sent transactions")
+	}
+	defer sentRows.Close()
+
+	var received []map[string]int
+	var sent []map[string]int
+
+	// Собираем полученные транзакции
+	for receivedRows.Next() {
+		var fromUserID int
+		var amount int
+		if err := receivedRows.Scan(&fromUserID, &amount); err != nil {
+			return nil, errors.New("failed to scan received row")
+		}
+		received = append(received, map[string]int{"fromUser": fromUserID, "amount": amount})
+	}
+
+	// Проверяем ошибки после обработки полученных транзакций
+	if err := receivedRows.Err(); err != nil {
+		return nil, errors.New("failed to iterate over received transaction rows")
+	}
+
+	// Собираем отправленные транзакции
+	for sentRows.Next() {
+		var toUserID int
+		var amount int
+		if err := sentRows.Scan(&toUserID, &amount); err != nil {
+			return nil, errors.New("failed to scan sent row")
+		}
+		sent = append(sent, map[string]int{"toUser": toUserID, "amount": amount})
+	}
+
+	// Проверяем ошибки после обработки отправленных транзакций
+	if err := sentRows.Err(); err != nil {
+		return nil, errors.New("failed to iterate over sent transaction rows")
+	}
+
+	return map[string][]map[string]int{
+		"received": received,
+		"sent":     sent,
+	}, nil
 }

@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
-    email VARCHAR(255) UNIQUE NOT NULL,          -- Email пользователя
+    username VARCHAR(255) UNIQUE NOT NULL,          -- username пользователя
     password VARCHAR(255) NOT NULL,              -- Зашифрованный пароль
     coins INTEGER NOT NULL DEFAULT 1000,       -- Баланс пользователя (coins)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Время создания

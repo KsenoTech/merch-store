@@ -10,19 +10,21 @@ import (
 func SetupRoutes(authHandler *handlers.AuthHandler, transactionHandler *handlers.TransactionHandler, jwtMiddleware func(http.Handler) http.Handler) http.Handler {
 	router := mux.NewRouter()
 
-	// Роуты для аутентификации
-	router.HandleFunc("/register", authHandler.Register).Methods("POST")
-	router.HandleFunc("/login", authHandler.Login).Methods("POST")
-	router.HandleFunc("/validate", authHandler.ValidateToken).Methods("GET")
+	// Auth endpoint
+	router.HandleFunc("/api/auth", authHandler.Login).Methods("POST")
 
-	// Защищенные маршруты
-	protected := router.PathPrefix("/").Subrouter()
+	// Protected routes
+	protected := router.PathPrefix("/api").Subrouter()
 	protected.Use(jwtMiddleware)
-	protected.HandleFunc("/transfer", transactionHandler.TransferCoins).Methods("POST")
-	protected.HandleFunc("/buy", transactionHandler.BuyMerch).Methods("POST")
 
-	protected.HandleFunc("/get-purchased-items", transactionHandler.GetPurchasedItems).Methods("GET")
-	protected.HandleFunc("/get-transaction-history", transactionHandler.GetTransactionHistory).Methods("GET")
+	// Получение информации о пользователе
+	protected.HandleFunc("/info", transactionHandler.GetUserInfo).Methods("GET")
+
+	// Отправка монеток
+	protected.HandleFunc("/sendCoin", transactionHandler.SendCoins).Methods("POST")
+
+	// Покупка мерча
+	protected.HandleFunc("/buy/{item}", transactionHandler.BuyMerch).Methods("GET")
 
 	return router
 }
