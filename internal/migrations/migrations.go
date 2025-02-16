@@ -14,34 +14,6 @@ import (
 //go:embed up.sql
 var migrations embed.FS
 
-// ApplyMigrations применяет SQL-миграции из файла up.sql
-// func ApplyMigrations(db *gorm.DB) error {
-// 	// Проверяем, существует ли таблица schema_migrations
-// 	if migrationTableExists(db) {
-// 		log.Println("Database is already migrated")
-// 		return nil
-// 	}
-
-// 	// Читаем содержимое файла up.sql
-// 	migrationContent, err := migrations.ReadFile("up.sql")
-// 	if err != nil {
-// 		return fmt.Errorf("failed to read migration file: %w", err)
-// 	}
-
-// 	// Выполняем миграции
-// 	if err := executeMigrations(db, string(migrationContent)); err != nil {
-// 		return fmt.Errorf("failed to apply migrations: %w", err)
-// 	}
-
-// 	// Создаем таблицу schema_migrations после успешного выполнения миграций
-// 	if err := createMigrationTable(db); err != nil {
-// 		return fmt.Errorf("failed to create migration table: %w", err)
-// 	}
-
-// 	log.Println("Migrations applied successfully")
-// 	return nil
-// }
-
 func ApplyMigrations(db *gorm.DB) error {
 	// Проверяем, существует ли таблица schema_migrations
 	var count int64

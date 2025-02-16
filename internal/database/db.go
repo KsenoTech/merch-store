@@ -14,34 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// func ConnectDB() (*gorm.DB, error) {
-// 	// Получаем строку подключения
-// 	dbURL := os.Getenv("DATABASE_URL")
-// 	if dbURL == "" {
-// 		return nil, fmt.Errorf("DATABASE_URL is not set")
-// 	}
-
-// 	// Разделяем строку подключения на части
-// 	dsnParts := parseDSN(dbURL)
-// 	if dsnParts == nil {
-// 		return nil, fmt.Errorf("invalid DATABASE_URL")
-// 	}
-
-// 	// Проверяем существование базы данных и создаём её, если она не существует
-// 	if err := ensureDatabaseExists(dsnParts); err != nil {
-// 		return nil, err
-// 	}
-
-// 	// Подключаемся к базе данных
-// 	db, err := gorm.Open(postgres.Open(dbURL), &gorm.Config{})
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-//		log.Println("Connected to the database successfully")
-//		return db, nil
-//	}
-
 func ConnectDB() (*gorm.DB, error) {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
