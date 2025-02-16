@@ -73,50 +73,6 @@ func (s *TransactionService) TransferCoins(fromUserID, toUserID, amount int) err
 	return nil
 }
 
-// Получение истории покупок пользователя
-func (s *TransactionService) GetPurchasedItems(userID int) ([]string, error) {
-	tx, err := s.transactionRepo.BeginTx()
-	if err != nil {
-		return nil, errors.New("failed to start transaction")
-	}
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback()
-		} else {
-			_ = tx.Commit()
-		}
-	}()
-
-	return s.transactionRepo.GetPurchasedItems(tx, userID)
-}
-
-// Получение истории транзакций пользователя
-func (s *TransactionService) GetTransactionHistory(userID int) (map[string][]map[string]int, error) {
-	log.Printf("Getting transaction history for userID: %d", userID)
-
-	tx, err := s.transactionRepo.BeginTx()
-	if err != nil {
-		log.Printf("Error starting transaction: %v", err)
-		return nil, errors.New("failed to start transaction")
-	}
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback()
-		} else {
-			_ = tx.Commit()
-		}
-	}()
-
-	history, err := s.transactionRepo.GetTransactionHistory(userID)
-	if err != nil {
-		log.Printf("Error getting transaction history for userID: %d. Error: %v", userID, err)
-		return nil, errors.New("failed to get transaction history")
-	}
-
-	log.Printf("Transaction history for userID: %d is %v", userID, history)
-	return history, nil
-}
-
 // Покупка мерча
 func (s *TransactionService) BuyMerch(userID int, itemName string) error {
 

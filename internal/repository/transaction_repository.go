@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 )
 
@@ -99,11 +100,12 @@ func (r *TransactionRepository) GetInventory(userID int) ([]map[string]int, erro
 	return inventory, nil
 }
 
-func (r *TransactionRepository) GetTransactionHistory(userID int) (map[string][]map[string]int, error) {
+func (r *TransactionRepository) GetTransactionHistory(userID int) (map[string][]map[string]interface{}, error) {
 	receivedRows, err := r.db.Query(`
-        SELECT from_user_id, amount
-        FROM coin_transfers
-        WHERE to_user_id = $1
+        SELECT u.username, ct.amount
+        FROM coin_transfers ct
+        JOIN users u ON ct.from_user_id = u.id
+        WHERE ct.to_user_id = $1
     `, userID)
 	if err != nil {
 		return nil, errors.New("failed to fetch received transactions")
@@ -111,50 +113,111 @@ func (r *TransactionRepository) GetTransactionHistory(userID int) (map[string][]
 	defer receivedRows.Close()
 
 	sentRows, err := r.db.Query(`
-        SELECT to_user_id, amount
-        FROM coin_transfers
-        WHERE from_user_id = $1
+        SELECT u.username, ct.amount
+        FROM coin_transfers ct
+        JOIN users u ON ct.to_user_id = u.id
+        WHERE ct.from_user_id = $1
     `, userID)
 	if err != nil {
 		return nil, errors.New("failed to fetch sent transactions")
 	}
 	defer sentRows.Close()
 
-	var received []map[string]int
-	var sent []map[string]int
+	var received []map[string]interface{}
+	var sent []map[string]interface{}
 
 	// Собираем полученные транзакции
 	for receivedRows.Next() {
-		var fromUserID int
+		var username string
 		var amount int
-		if err := receivedRows.Scan(&fromUserID, &amount); err != nil {
+		if err := receivedRows.Scan(&username, &amount); err != nil {
 			return nil, errors.New("failed to scan received row")
 		}
-		received = append(received, map[string]int{"fromUser": fromUserID, "amount": amount})
+		received = append(received, map[string]interface{}{"fromUser": username, "amount": amount})
 	}
 
 	// Проверяем ошибки после обработки полученных транзакций
 	if err := receivedRows.Err(); err != nil {
-		return nil, errors.New("failed to iterate over received transaction rows")
+		return nil, fmt.Errorf("failed to iterate over received transaction rows: %w", err)
 	}
 
 	// Собираем отправленные транзакции
 	for sentRows.Next() {
-		var toUserID int
+		var username string
 		var amount int
-		if err := sentRows.Scan(&toUserID, &amount); err != nil {
+		if err := sentRows.Scan(&username, &amount); err != nil {
 			return nil, errors.New("failed to scan sent row")
 		}
-		sent = append(sent, map[string]int{"toUser": toUserID, "amount": amount})
+		sent = append(sent, map[string]interface{}{"toUser": username, "amount": amount})
 	}
 
 	// Проверяем ошибки после обработки отправленных транзакций
 	if err := sentRows.Err(); err != nil {
-		return nil, errors.New("failed to iterate over sent transaction rows")
+		return nil, fmt.Errorf("failed to iterate over sent transaction rows: %w", err)
 	}
 
-	return map[string][]map[string]int{
+	return map[string][]map[string]interface{}{
 		"received": received,
 		"sent":     sent,
 	}, nil
 }
+
+// func (r *TransactionRepository) GetTransactionHistory(userID int) (map[string][]map[string]int, error) {
+// 	receivedRows, err := r.db.Query(`
+//         SELECT from_user_id, amount
+//         FROM coin_transfers
+//         WHERE to_user_id = $1
+//     `, userID)
+// 	if err != nil {
+// 		return nil, errors.New("failed to fetch received transactions")
+// 	}
+// 	defer receivedRows.Close()
+
+// 	sentRows, err := r.db.Query(`
+//         SELECT to_user_id, amount
+//         FROM coin_transfers
+//         WHERE from_user_id = $1
+//     `, userID)
+// 	if err != nil {
+// 		return nil, errors.New("failed to fetch sent transactions")
+// 	}
+// 	defer sentRows.Close()
+
+// 	var received []map[string]int
+// 	var sent []map[string]int
+
+// 	// Собираем полученные транзакции
+// 	for receivedRows.Next() {
+// 		var fromUserID int
+// 		var amount int
+// 		if err := receivedRows.Scan(&fromUserID, &amount); err != nil {
+// 			return nil, errors.New("failed to scan received row")
+// 		}
+// 		received = append(received, map[string]int{"fromUser": fromUserID, "amount": amount})
+// 	}
+
+// 	// Проверяем ошибки после обработки полученных транзакций
+// 	if err := receivedRows.Err(); err != nil {
+// 		return nil, errors.New("failed to iterate over received transaction rows")
+// 	}
+
+// 	// Собираем отправленные транзакции
+// 	for sentRows.Next() {
+// 		var toUserID int
+// 		var amount int
+// 		if err := sentRows.Scan(&toUserID, &amount); err != nil {
+// 			return nil, errors.New("failed to scan sent row")
+// 		}
+// 		sent = append(sent, map[string]int{"toUser": toUserID, "amount": amount})
+// 	}
+
+// 	// Проверяем ошибки после обработки отправленных транзакций
+// 	if err := sentRows.Err(); err != nil {
+// 		return nil, errors.New("failed to iterate over sent transaction rows")
+// 	}
+
+// 	return map[string][]map[string]int{
+// 		"received": received,
+// 		"sent":     sent,
+// 	}, nil
+// }
