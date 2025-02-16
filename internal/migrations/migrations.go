@@ -15,30 +15,75 @@ import (
 var migrations embed.FS
 
 // ApplyMigrations применяет SQL-миграции из файла up.sql
+// func ApplyMigrations(db *gorm.DB) error {
+// 	// Проверяем, существует ли таблица schema_migrations
+// 	if migrationTableExists(db) {
+// 		log.Println("Database is already migrated")
+// 		return nil
+// 	}
+
+// 	// Читаем содержимое файла up.sql
+// 	migrationContent, err := migrations.ReadFile("up.sql")
+// 	if err != nil {
+// 		return fmt.Errorf("failed to read migration file: %w", err)
+// 	}
+
+// 	// Выполняем миграции
+// 	if err := executeMigrations(db, string(migrationContent)); err != nil {
+// 		return fmt.Errorf("failed to apply migrations: %w", err)
+// 	}
+
+// 	// Создаем таблицу schema_migrations после успешного выполнения миграций
+// 	if err := createMigrationTable(db); err != nil {
+// 		return fmt.Errorf("failed to create migration table: %w", err)
+// 	}
+
+// 	log.Println("Migrations applied successfully")
+// 	return nil
+// }
+
 func ApplyMigrations(db *gorm.DB) error {
 	// Проверяем, существует ли таблица schema_migrations
-	if migrationTableExists(db) {
-		log.Println("Database is already migrated")
-		return nil
+	var count int64
+	db.Model(&struct{}{}).Table("information_schema.tables").
+		Where("table_name = ?", "schema_migrations").Count(&count)
+
+	if count == 0 {
+		log.Println("Applying migrations...")
+
+		// Читаем содержимое файла up.sql
+		migrationContent, err := migrations.ReadFile("up.sql")
+		if err != nil {
+			return fmt.Errorf("failed to read migration file: %w", err)
+		}
+
+		// Разделяем миграции по точке с запятой
+		statements := strings.Split(string(migrationContent), ";")
+
+		// Выполняем каждый запрос
+		for _, statement := range statements {
+			trimmedStatement := strings.TrimSpace(statement)
+			if trimmedStatement != "" {
+				if err := db.Exec(trimmedStatement).Error; err != nil {
+					return fmt.Errorf("failed to execute migration: %w", err)
+				}
+			}
+		}
+
+		// Создаем таблицу schema_migrations после успешного выполнения миграций
+		if err := db.Exec(`CREATE TABLE schema_migrations (version TEXT PRIMARY KEY)`).Error; err != nil {
+			return fmt.Errorf("failed to create migration table: %w", err)
+		}
+
+		if err := db.Exec(`INSERT INTO schema_migrations (version) VALUES ('v1')`).Error; err != nil {
+			return fmt.Errorf("failed to insert migration version: %w", err)
+		}
+
+		log.Println("Migrations applied successfully")
+	} else {
+		log.Println("Migrations already applied")
 	}
 
-	// Читаем содержимое файла up.sql
-	migrationContent, err := migrations.ReadFile("up.sql")
-	if err != nil {
-		return fmt.Errorf("failed to read migration file: %w", err)
-	}
-
-	// Выполняем миграции
-	if err := executeMigrations(db, string(migrationContent)); err != nil {
-		return fmt.Errorf("failed to apply migrations: %w", err)
-	}
-
-	// Создаем таблицу schema_migrations после успешного выполнения миграций
-	if err := createMigrationTable(db); err != nil {
-		return fmt.Errorf("failed to create migration table: %w", err)
-	}
-
-	log.Println("Migrations applied successfully")
 	return nil
 }
 

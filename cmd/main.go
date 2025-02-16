@@ -12,15 +12,14 @@ import (
 	service "github.com/KsenoTech/merch-store/internal/services"
 
 	"github.com/KsenoTech/merch-store/internal/migrations"
-	"github.com/joho/godotenv"
 )
 
 func main() {
 	// Загружаем переменные окружения
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("No .env file found")
-	}
+	// err := godotenv.Load()
+	// if err != nil {
+	// 	log.Println("No .env file found")
+	// }
 
 	// Подключаемся к базе данных через GORM
 	db, err := database.ConnectDB()

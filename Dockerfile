@@ -1,5 +1,5 @@
 # Stage 1: Build the Go application
-FROM golang:1.20-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -27,7 +27,7 @@ COPY --from=builder /app/main .
 COPY wait-for-db.sh .
 
 # Install netcat for waiting for DB
-RUN apk add --no-cache bash nc
+RUN apk add --no-cache bash netcat-openbsd
 
 # Expose port 8080
 EXPOSE 8080

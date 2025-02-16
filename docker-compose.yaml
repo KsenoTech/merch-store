@@ -1,12 +1,10 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: yourusername
-      POSTGRES_PASSWORD: yourpassword
-      POSTGRES_DB: yourdatabase
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 590789
+      POSTGRES_DB: merch_store
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -18,17 +16,12 @@ services:
       dockerfile: Dockerfile
     container_name: merch_store_app
     environment:
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_USER: yourusername
-      DB_PASSWORD: yourpassword
-      DB_NAME: yourdatabase
+      DATABASE_URL: postgres://postgres:590789@db:5432/merch_store?sslmode=disable
+      SECRET_KEY: mySuperSecretKey123!@#ABCdef456
     ports:
       - "8080:8080"
     depends_on:
       - db
-    env_file:
-      - .env
     networks:
       - app-network
 
